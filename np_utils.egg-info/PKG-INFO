@@ -1,0 +1,16 @@
+Metadata-Version: 2.4
+Name: np_utils
+Version: 0.1.0
+Summary: So I don't rewrite the same code over and over and over
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: numpy
+Requires-Dist: pandas
+Requires-Dist: np-sheets@ git+https://github.com/EthanKato/np_sheet_utils@v0.1.0
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: black; extra == "dev"
+Requires-Dist: flake8; extra == "dev"
+
+# np_utils
+So I don't rewrite the same code over and over and over
