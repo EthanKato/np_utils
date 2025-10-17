@@ -26,6 +26,8 @@ spikeinterface = [
     "spikeinterface>=0.100",
     "neuroconv>=0.4",
     "psutil>=5.8",
+    "scipy>=1.7",
+    "plotly>=5.0",
     "np-nwbmaker @ git+https://github.com/EthanKato/np_nwbmaker.git",
 ]
 
@@ -53,6 +55,8 @@ all = [
     "spikeinterface>=0.100",
     "neuroconv>=0.4",
     "psutil>=5.8",
+    "scipy>=1.7",
+    "plotly>=5.0",
     "medicine",
     "matplotlib>=3.5",
 ]

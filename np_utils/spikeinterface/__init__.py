@@ -26,6 +26,13 @@ from .io_utils import (
     get_matching_recording,
     resolve_output_path,
 )
+from .find_pial_surface import (
+    splice_recording_to_ends, 
+    plot_lfp_heatmap,
+    decimate_like_mtracer_fast,
+    sort_channels_by_depth,
+    plot_lfp_heatmap_plotly,
+)
 
 # Remove this line - main() is a CLI entry point, not a library function
 # from .run_si_proc import main as run_si_proc
@@ -41,4 +48,9 @@ __all__ = [
     # I/O
     'get_matching_recording',
     'resolve_output_path',
+    'splice_recording_to_ends',
+    'plot_lfp_heatmap',
+    'decimate_like_mtracer_fast',
+    'sort_channels_by_depth',
+    'plot_lfp_heatmap_plotly',
 ]

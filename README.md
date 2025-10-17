@@ -9,9 +9,28 @@ A comprehensive collection of reusable utilities for neurophysiology data proces
 - 🔄 **Job Submission**: Flexible SGE/SLURM queue management with throttling
 - 📊 **Oversight Tools**: Google Sheets integration for experiment tracking
 - 🧠 **SpikeInterface**: Complete preprocessing and analysis pipelines
+- 📈 **LFP Visualization**: Interactive pial surface identification with MTracer-compatible processing
 - 📦 **NWB Creation**: Batch NWB file generation with interactive filtering
 - 🎯 **Motion Correction**: Multi-algorithm, multi-probe motion correction with GPU support
 - 🛠️ **Core Utilities**: Common parsing, path resolution, and data management functions
+
+## 📚 Table of Contents
+- [Installation](#installation)
+  - [Basic](#basic-installation-core-utilities-only)
+  - [Module-Specific](#module-specific-installation)
+  - [Full Installation](#full-installation-recommended-for-main-analysis-environment)
+- [Quick Start](#quick-start)
+- [Package Structure](#-package-structure)
+- [API Reference](#-api-reference)
+  - [Core Utilities](#core-utilities-np_utilscore)
+  - [Oversight Utils](#oversight-utils-np_utilsoversight_utils)
+  - [Job Utils](#job-utils-np_utilsjob_utils)
+  - [LFP Visualization](#lfp-visualization--pial-surface-identification-np_utilsspikeinterfacefind_pial_surface)
+  - [Motion Correction](#motion-correction-module-np_utilsmotioncorrection)
+  - [NWB Creation](#nwb-creation-module-np_utilsnwbmaker)
+  - [SpikeInterface](#spikeinterface-module-np_utilsspikeinterface)
+- [Examples](#examples)
+- [Contributing](#contributing)
 
 ## Installation
 
@@ -91,6 +110,7 @@ np_utils/
 │   ├── preprocessing.py     #   Recording preprocessing
 │   ├── analyzers.py         #   Analyzer building & QC
 │   ├── io_utils.py          #   Path resolution
+│   ├── find_pial_surface.py #   LFP visualization & pial surface ID
 │   └── submit_si_jobs.py    #   Batch submission
 ├── nwbmaker/                 # NWB creation tools
 │   ├── np_make_nwb.py       #   Single NWB creation
@@ -407,6 +427,177 @@ The script will:
 1. Check if NWB files already exist
 2. Prompt for confirmation on each recording
 3. Submit approved jobs with throttling
+
+---
+
+### LFP Visualization & Pial Surface Identification (`np_utils.spikeinterface.find_pial_surface`)
+
+Interactive LFP visualization tools for identifying the pial surface in Neuropixels recordings. Emulates MTracer's approach with Python-based filtering and plotly visualization.
+
+#### Features
+- ✅ MTracer-compatible decimation (10th-order elliptic filter + 50x downsampling)
+- ✅ Interactive plotly heatmaps with zoom/pan
+- ✅ Channel sorting by depth for proper spatial visualization
+- ✅ Optional splicing to recording endpoints for fast preview
+- ✅ Temporal/spatial binning for large datasets
+
+#### Quick Start
+
+```python
+import np_utils as nu
+
+# Find LFP binaries
+lf_dict = nu.find_all_neural_binaries("NP156_B1", source='catgt', band='lf')
+
+# Visualize LFP for pial surface identification
+nu.spikeinterface.plot_lfp_heatmap(
+    lfp_path=lf_dict['imec0'],
+    title="LFP - NP156_B1 imec0",
+    splice_to_ends=True,  # Fast preview
+    verbose=True
+)
+```
+
+#### Main Functions
+
+**`plot_lfp_heatmap(lfp_path, title=None, splice_to_ends=False, verbose=False)`**
+
+Main entry point for LFP visualization. Loads LFP binary, applies MTracer-style filtering and decimation, and displays as interactive heatmap.
+
+```python
+from np_utils.spikeinterface import plot_lfp_heatmap
+
+# Full recording
+plot_lfp_heatmap("path/to/recording.lf.bin")
+
+# Quick preview (start + end only)
+plot_lfp_heatmap(
+    "path/to/recording.lf.bin",
+    splice_to_ends=True,  # Only processes first/last 50s
+    title="Quick Preview"
+)
+```
+
+**Args:**
+- `lfp_path` (str | Path): Path to LFP binary (.lf.bin)
+- `title` (str, optional): Custom plot title
+- `splice_to_ends` (bool): If True, only processes start/end segments (default: False)
+- `verbose` (bool): Print progress messages
+
+**`decimate_like_mtracer_fast(data, r=50, n=None)`**
+
+Apply MTracer-style filtering and decimation to LFP data. Uses 10th-order elliptic IIR lowpass filter with bidirectional filtering (zero-phase).
+
+```python
+from np_utils.spikeinterface import decimate_like_mtracer_fast
+
+# Load raw LFP
+lfp = recording.get_traces()  # Shape: (8.2M, 384) at 2500 Hz
+
+# Decimate 50x: 2500 Hz → 50 Hz
+lfp_decimated = decimate_like_mtracer_fast(lfp, r=50)
+# Shape: (164k, 384) at 50 Hz
+```
+
+**Filter Specifications:**
+- Order: 10th-order elliptic IIR
+- Passband ripple: 0.01 dB
+- Stopband attenuation: 80 dB
+- Cutoff: 25 Hz (for 2500 Hz input, r=50)
+- Direction: Forward-backward (zero-phase)
+
+**`plot_lfp_heatmap_plotly(lfp, fs, time_bin_s=0.1, chan_bin=1, depths_um=None, clip_pct=99.5, title=None)`**
+
+Lower-level function for creating plotly heatmaps with custom binning.
+
+```python
+from np_utils.spikeinterface import plot_lfp_heatmap_plotly
+
+# High-resolution plot
+fig = plot_lfp_heatmap_plotly(
+    lfp=lfp_data,
+    fs=50,
+    time_bin_s=0,  # No temporal binning
+    chan_bin=1,    # All channels
+    depths_um=depths
+)
+fig.show()
+
+# Fast preview with aggressive binning
+fig = plot_lfp_heatmap_plotly(
+    lfp=lfp_data,
+    fs=50,
+    time_bin_s=1.0,  # 1-second bins
+    chan_bin=4,      # Average 4 adjacent channels
+    depths_um=depths
+)
+```
+
+**`splice_recording_to_ends(rec, t0, t1, epsilon=50)`**
+
+Extract and concatenate start/end segments for quick preview.
+
+```python
+from np_utils.spikeinterface import splice_recording_to_ends
+import spikeinterface.full as si
+
+rec = si.read_spikeglx(folder, stream_id='imec0.lf')
+rec_splice = splice_recording_to_ends(rec, t0=100, t1=1200, epsilon=50)
+# Contains: [0, 150s] + [1150s, end]
+```
+
+#### Example Jupyter Notebook
+
+See `np_utils/examples/view_lfp_example.ipynb` for a complete example.
+
+```python
+import np_utils as nu
+import np_utils.spikeinterface as nusi
+
+REC_ID = "NP156_B1"
+
+# Find LFP binaries
+lf_dict = nu.find_all_neural_binaries(REC_ID, source='catgt', band='lf')
+print(lf_dict)  # {'imec0': '/path/to/imec0.lf.bin', ...}
+
+# Plot with splicing for fast preview
+nusi.plot_lfp_heatmap(
+    lfp_path=lf_dict['imec0'],
+    title=f"LFP heatmap for {REC_ID}, imec0",
+    splice_to_ends=True
+)
+```
+
+#### Identifying the Pial Surface
+
+The pial surface typically appears as:
+- Transition in LFP amplitude patterns
+- Clearer signals below surface (brain tissue)
+- More noise/artifacts above surface (CSF/outside brain)
+- Changes in temporal dynamics and frequency content
+
+Use the interactive plotly plot to zoom and identify this transition across the recording duration.
+
+#### Technical Notes
+
+**Processing Pipeline:**
+1. Load LFP recording via SpikeInterface
+2. Optional: Splice to start/end segments (fast preview)
+3. Decimate 50x: 2500 Hz → 50 Hz (MTracer-compatible)
+4. Sort channels by depth (y-coordinate)
+5. Bin temporally/spatially for rendering
+6. Display as interactive heatmap
+
+**Performance:**
+- Full recording: ~1-3 minutes for 1-hour session
+- Spliced (start+end): ~10-30 seconds
+- Memory usage: ~120 MB for raw LFP, ~5 MB after decimation
+
+**Dependencies:**
+- spikeinterface
+- scipy (filter design)
+- plotly (interactive plotting)
+- numpy
 
 ---
 

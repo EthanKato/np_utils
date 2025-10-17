@@ -1,6 +1,6 @@
 # Super commonly used functions
 
-from typing import Tuple, Optional, Literal, List, Dict
+from typing import Tuple, Optional, Literal, List, Dict, Union
 import json
 import glob
 import os
@@ -453,3 +453,47 @@ def find_all_neural_binaries(
             probe_dict[probe_id] = file
     
     return probe_dict
+
+def get_neural_binary_folder(binary_path: Union[str, Path]) -> Path:
+    """
+    Get the folder containing a neural binary file.
+    
+    Args:
+        binary_path (str): Path to neural binary file
+    
+    Returns:
+        Path: Folder containing the binary file
+    """
+    return Path(binary_path).parent
+
+def extract_rec_id_from_path(path: Union[str, Path]) -> Optional[str]:
+    """
+    Extract recording ID from a path or string by looking for NP(digits)_B(digits) pattern.
+    
+    Args:
+        path (str or Path): Path or string to search for rec_id pattern
+    
+    Returns:
+        str or None: Recording ID if found, None otherwise
+    
+    Examples:
+        >>> extract_rec_id_from_path("/data/NP147_B1/sglx/catgt_NP147_B1_g0")
+        'NP147_B1'
+        >>> extract_rec_id_from_path("NP79_B2_imec0.ap.bin")
+        'NP79_B2'
+        >>> extract_rec_id_from_path("some_random_string")
+        None
+    """
+    import re
+    
+    # Convert to string if Path object
+    path_str = str(path)
+    
+    # Look for NP(digits)_B(digits) pattern
+    pattern = r'NP(\d+)_B(\d+)'
+    match = re.search(pattern, path_str)
+    
+    if match:
+        return match.group(0)  # Return the full match
+    
+    return None

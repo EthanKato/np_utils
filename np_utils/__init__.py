@@ -21,7 +21,10 @@ from .core import (
     find_all_neural_binaries,
     read_stable_range,
     get_stream_id,
+    parse_binary_path,
     extract_probe_from_path,
+    get_neural_binary_folder,
+    extract_rec_id_from_path,
 )
 
 # Import oversight functions
@@ -60,7 +63,10 @@ __all__ = [
     'find_all_neural_binaries',
     'read_stable_range',
     'get_stream_id',
+    'parse_binary_path',
     'extract_probe_from_path',
+    'get_neural_binary_folder',
+    'extract_rec_id_from_path',
     # Oversight functions
     'get_need_nwb',
     'get_rec_ids',
