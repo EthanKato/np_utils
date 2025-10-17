@@ -9,19 +9,50 @@ description = "So I don't rewrite the same code over and over and over"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
-    "numpy",
-    "pandas",
+    "numpy>=1.20",
+    "pandas>=1.3",
     "np-sheets @ git+https://github.com/EthanKato/np_sheet_utils@v0.1.0",
 ]
 
 [project.optional-dependencies]
+# NWB creation tools (np_utils.nwbmaker)
+nwbmaker = [
+    "np-nwbmaker @ git+https://github.com/EthanKato/np_nwbmaker.git",
+]
+
+# SpikeInterface processing (np_utils.spikeinterface)
+spikeinterface = [
+    "pynapple>=0.6",
+    "spikeinterface>=0.100",
+    "neuroconv>=0.4",
+    "psutil>=5.8",
+    "np-nwbmaker @ git+https://github.com/EthanKato/np_nwbmaker.git",
+]
+
+# Motion correction tools (np_utils.motioncorrection) - Future
+motioncorrection = [
+    # To be added when motion correction module is implemented
+    # Anticipated: suite2p, opencv-python, scipy
+]
+
+# Development tools
 dev = [
-    "pytest",
-    "black",
-    "flake8",
+    "pytest>=7.0",
+    "black>=22.0",
+    "flake8>=4.0",
+    "ipython>=8.0",
+    "jupyter>=1.0",
+]
+
+# Install all modules (recommended for main analysis environment)
+all = [
+    "np-nwbmaker @ git+https://github.com/EthanKato/np_nwbmaker.git",
+    "pynapple>=0.6",
+    "spikeinterface>=0.100",
+    "neuroconv>=0.4",
+    "psutil>=5.8",
 ]
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["np_utils*"]
-

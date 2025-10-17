@@ -1,8 +1,25 @@
-numpy
-pandas
+numpy>=1.20
+pandas>=1.3
 np-sheets@ git+https://github.com/EthanKato/np_sheet_utils@v0.1.0
+
+[all]
+pynapple>=0.6
+spikeinterface>=0.100
+neuroconv>=0.4
+psutil>=5.8
+np-nwbmaker@ git+https://github.com/EthanKato/np_nwbmaker.git
+pytest
+black
+flake8
 
 [dev]
 pytest
 black
 flake8
+
+[spikeinterface]
+pynapple>=0.6
+spikeinterface>=0.100
+neuroconv>=0.4
+psutil>=5.8
+np-nwbmaker@ git+https://github.com/EthanKato/np_nwbmaker.git

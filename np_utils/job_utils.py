@@ -79,7 +79,11 @@ def submit_job(
         )
     """
     # Ensure paths
-    script = Path(script)
+    if isinstance(script, str) and script.startswith("-m "):
+        # Split "-m module.name" into ["-m", "module.name"]
+        script = script.split(None, 1)  # Split on whitespace, max 1 split
+    else:
+        script = Path(script)
     log_dir = Path(log_dir)
     log_dir.mkdir(parents=True, exist_ok=True)
     
@@ -151,8 +155,13 @@ def _submit_single_job(
         # Custom executable (e.g., matlab)
         payload.extend([executable, str(script)])
     else:
-        # Python
-        payload.extend([python_executable, str(script)])
+        # Python execution - check if module or script
+        if isinstance(script, list):
+            # Module execution: script is ["-m", "module.name"]
+            payload.extend([python_executable] + script)
+        else:
+            # Normal script: script is a Path
+            payload.extend([python_executable, str(script)])
     
     # Add rec_id if provided
     if rec_id:
@@ -318,7 +327,7 @@ def submit_queue_throttled(
         submit_queue_throttled(
             items=["NP139_B2", "NP140_B1"],
             submit_func=lambda **kwargs: nu.submit_job(
-                script="/userdata/ekato/git_repos/np_se2nwb/SI/run_si_proc.py",
+                script="/userdata/ekato/git_repos/np_utils/np_utils/spikeinterface/run_si_proc.py",
                 python_executable="/userdata/ekato/miniforge3/envs/se2nwb/bin/python",
                 queue="mind-batch",
                 cores=9,
