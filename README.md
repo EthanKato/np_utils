@@ -10,7 +10,8 @@ A comprehensive collection of reusable utilities for neurophysiology data proces
 - 📊 **Oversight Tools**: Google Sheets integration for experiment tracking
 - 🧠 **SpikeInterface**: Complete preprocessing and analysis pipelines
 - 📦 **NWB Creation**: Batch NWB file generation with interactive filtering
-- 🛠️ **Core Utilities**: Common parsing and formatting functions
+- 🎯 **Motion Correction**: Multi-algorithm, multi-probe motion correction with GPU support
+- 🛠️ **Core Utilities**: Common parsing, path resolution, and data management functions
 
 ## Installation
 
@@ -33,7 +34,7 @@ pip install -e ".[nwbmaker]"
 # For SpikeInterface processing only
 pip install -e ".[spikeinterface]"
 
-# For motion correction only (future)
+# For motion correction only
 pip install -e ".[motioncorrection]"
 
 # Combine multiple modules
@@ -82,7 +83,7 @@ nu.submit_rec_queue(
 
 ```
 np_utils/
-├── core.py                    # Common utilities (parsing, formatting)
+├── core.py                    # Common utilities (parsing, path resolution, stable ranges)
 ├── oversight_utils.py         # Google Sheets integration
 ├── job_utils.py              # SGE/SLURM job submission
 ├── spikeinterface/           # SpikeInterface processing
@@ -94,7 +95,11 @@ np_utils/
 ├── nwbmaker/                 # NWB creation tools
 │   ├── np_make_nwb.py       #   Single NWB creation
 │   └── np_batch_create.py   #   Batch with filtering
-└── motioncorrection/         # (Future: motion correction)
+└── motioncorrection/         # Motion correction analysis
+    ├── motion_correction.py  #   Main MotionCorrection class
+    ├── motion_utils.py       #   Plotting and analysis utilities
+    ├── run_mc.py            #   CLI entry point
+    └── submit_mc.py         #   Batch submission
 ```
 
 ---
@@ -123,6 +128,80 @@ nu.parse_sheet_trange('[0, Inf]', False)  # [0, inf] (float)
 **Args:**
 - `value` (str): String from sheet (e.g., `'[41, 931]'` or `'[0, inf]'`)
 - `inf_as_string` (bool): If True, convert infinity to string `'inf'`. If False, use `float('inf')`.
+
+#### `find_neural_binaries(rec_id, source='catgt', probe_id=None, band='ap') -> Optional[str]`
+Find preprocessed neural binary files (CatGT or motion-corrected).
+
+```python
+# Find CatGT AP file for imec0
+ap_path = nu.find_neural_binaries("NP147_B1", source='catgt', probe_id='imec0')
+
+# Find motion-corrected AP file
+mc_path = nu.find_neural_binaries("NP147_B1", source='mc', probe_id='imec0')
+
+# Find LF band
+lf_path = nu.find_neural_binaries("NP147_B1", source='catgt', probe_id='imec0', band='lf')
+```
+
+**Args:**
+- `rec_id` (str): Recording ID (e.g., 'NP147_B1')
+- `source` (str): 'catgt' or 'mc' (motion-corrected)
+- `probe_id` (str, optional): Specific probe (e.g., 'imec0'). Returns first if None.
+- `band` (str): 'ap' or 'lf'
+
+**Returns:** Path to binary file or None if not found
+
+#### `find_all_neural_binaries(rec_id, source='catgt', band='ap') -> Dict[str, str]`
+Find ALL neural binaries for a recording (multi-probe support).
+
+```python
+# Find all probes
+probes = nu.find_all_neural_binaries("NP147_B1", source='catgt')
+# Returns: {'imec0': '/path/to/imec0.ap.bin', 'imec1': '/path/to/imec1.ap.bin'}
+
+# Process each probe
+for probe_id, ap_path in probes.items():
+    print(f"Processing {probe_id}: {ap_path}")
+```
+
+**Returns:** Dictionary mapping probe_id → file_path
+
+#### `read_stable_range(rec_id, config_path=..., fallback_to_sheet=True) -> Tuple[float, float]`
+Read stable recording range (sort times) with smart fallback.
+
+```python
+# Reads from config, falls back to sheet, then default
+t0, t1 = nu.read_stable_range("NP147_B1")
+# Returns: (100.0, 1250.0)
+```
+
+**Priority:**
+1. `sorting_config.json` (if exists)
+2. Google Sheets 'Sort time' column (if fallback enabled)
+3. Default: `(0.0, inf)`
+
+**Args:**
+- `rec_id` (str): Recording ID
+- `config_path` (str): Path to sorting_config.json
+- `fallback_to_sheet` (bool): Try sheet if config fails
+
+**Returns:** Tuple of (start_time, end_time) in seconds
+
+#### `get_stream_id(probe_id, band='ap') -> str`
+Construct SpikeGLX stream ID from probe and band.
+
+```python
+nu.get_stream_id('imec0', 'ap')  # 'imec0.ap'
+nu.get_stream_id('imec1', 'lf')  # 'imec1.lf'
+```
+
+#### `extract_probe_from_path(path) -> Optional[str]`
+Extract probe ID (imec0, imec1, etc.) from a file path.
+
+```python
+path = "/path/to/NP147_B1_g0_tcat.imec0.ap.bin"
+probe = nu.extract_probe_from_path(path)  # 'imec0'
+```
 
 ---
 
@@ -331,6 +410,82 @@ The script will:
 
 ---
 
+### Motion Correction Module (`np_utils.motioncorrection`)
+
+Comprehensive motion correction analysis for Neuropixels recordings with multi-probe support.
+
+#### Features
+- ✅ Multiple algorithms (Dredge, Kilosort-like, MEDiCINE)
+- ✅ Multi-probe support (automatic detection)
+- ✅ GPU-accelerated batch processing
+- ✅ Automatic visualization generation
+- ✅ Smart path resolution (CatGT/MC/NWB)
+
+#### Command-Line Usage
+
+```bash
+# Single probe
+python -m np_utils.motioncorrection.run_mc \
+    --rec-id NP147_B1 \
+    --probe-id imec0 \
+    --presets dredge medicine_ndb4 \
+    --source catgt
+
+# Batch submission (auto-detects all probes)
+python -m np_utils.motioncorrection.submit_mc
+```
+
+#### Library Usage
+
+```python
+from np_utils.motioncorrection import MotionCorrection, submit_motion_jobs
+
+# Single probe analysis
+mc = MotionCorrection(
+    rec_id="NP147_B1",
+    probe_id="imec0",
+    out_base="/data_store2/neuropixels/preproc/NP147_B1/motion_traces/imec0"
+)
+mc.resolve_ap_path(source='catgt')
+mc.load_and_preprocess()
+mc.run_all(["dredge", "medicine_ndb4"])
+
+# Batch processing (multi-probe, GPU)
+submit_motion_jobs(
+    rec_ids=["NP147_B1", "NP149_B1"],
+    presets=["dredge", "medicine_ndb4"],
+    source='catgt',
+    queue='mind-gpu',
+    gpu_count=1,
+    max_concurrent=2
+)
+```
+
+#### Supported Presets
+- `dredge`: Standard Dredge (fast, good quality)
+- `dredge_th6`: Dredge with threshold=6 (better for noisy data)
+- `dredge_fast`: Fast Dredge variant
+- `kilosort_like`: Kilosort-style correction
+- `medicine_SI`: MEDiCINE via SpikeInterface
+- `medicine_ndb2`, `medicine_ndb4`: External MEDiCINE (2 or 4 depth bins, best quality)
+
+#### Output Structure
+```
+{out_base}/{rec_id}/motion_traces/{probe_id}/
+├── _peaks_cache/              # Cached peak detections
+├── dredge/                    # Each preset gets own folder
+│   ├── motion/                # Motion data
+│   ├── peaks.npy
+│   ├── peak_locations.npy
+│   ├── dredge_spike_map.png
+│   ├── dredge_motion_traces.png
+│   └── dredge_corrected_drift_maps.png
+└── medicine_ndb4/
+    └── ...
+```
+
+---
+
 ## 📝 Examples
 
 ### Example 1: Find and Process Recordings Needing SI
@@ -376,7 +531,36 @@ for m in results['mismatches']:
     print(f"{m['rec_id']}: config={m['config']}, sheet={m['sheet']}")
 ```
 
-### Example 3: Custom Job Submission
+### Example 3: Motion Correction Batch Processing
+
+```python
+import np_utils as nu
+from np_utils.motioncorrection import submit_motion_jobs
+
+# Find all probes for recordings
+probes = nu.find_all_neural_binaries("NP147_B1", source='catgt')
+print(f"Found {len(probes)} probes: {list(probes.keys())}")
+
+# Submit motion correction jobs (auto-detects all probes)
+submit_motion_jobs(
+    rec_ids=["NP147_B1", "NP149_B1", "NP150_B1"],
+    presets=["dredge", "medicine_ndb4"],
+    source='catgt',
+    queue='mind-gpu',
+    gpu_count=1,
+    max_concurrent=2  # GPU throttling
+)
+
+# Or use in Jupyter for interactive control
+from np_utils.motioncorrection import MotionCorrection
+
+mc = MotionCorrection(rec_id="NP147_B1", probe_id="imec0")
+mc.resolve_ap_path(source='catgt')
+mc.load_and_preprocess()
+results = mc.run_all(["dredge", "medicine_ndb4"])
+```
+
+### Example 4: Custom Job Submission
 
 ```python
 import np_utils as nu
@@ -487,8 +671,9 @@ Ethan Kato - [GitHub](https://github.com/EthanKato)
 ## 🙏 Acknowledgments
 
 Built on top of:
-- [SpikeInterface](https://github.com/SpikeInterface/spikeinterface)
-- [NWBMaker](https://github.com/EthanKato/np_nwbmaker)
-- [np-sheets](https://github.com/EthanKato/np_sheet_utils)
-- [PyNapple](https://github.com/pynapple-org/pynapple)
-- [NeuroConv](https://github.com/catalystneuro/neuroconv)
+- [SpikeInterface](https://github.com/SpikeInterface/spikeinterface) - Neural data processing and motion correction
+- [MEDiCINE](https://github.com/int-brain-lab/ibllib) - Advanced motion correction algorithm
+- [NWBMaker](https://github.com/EthanKato/np_nwbmaker) - NWB file creation
+- [np-sheets](https://github.com/EthanKato/np_sheet_utils) - Google Sheets integration
+- [PyNapple](https://github.com/pynapple-org/pynapple) - Neural data analysis
+- [NeuroConv](https://github.com/catalystneuro/neuroconv) - Neurophysiology data conversion

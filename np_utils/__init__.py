@@ -7,13 +7,22 @@ This package provides tools for:
 - Google Sheets oversight and metadata tracking (oversight_utils)  
 - SpikeInterface processing pipelines (spikeinterface)
 - NWB batch creation and conversion (nwbmaker)
+- Motion correction analysis and batch processing (motioncorrection)
 - Common parsing and formatting utilities (core)
 """
 
 __version__ = "0.1.0"
 
 # Import commonly used core functions directly
-from .core import parse_rec_id, parse_sheet_trange
+from .core import (
+    parse_rec_id, 
+    parse_sheet_trange,
+    find_neural_binaries,
+    find_all_neural_binaries,
+    read_stable_range,
+    get_stream_id,
+    extract_probe_from_path,
+)
 
 # Import oversight functions
 from .oversight_utils import (
@@ -47,6 +56,11 @@ __all__ = [
     # Core parsing functions
     'parse_rec_id',
     'parse_sheet_trange',
+    'find_neural_binaries',
+    'find_all_neural_binaries',
+    'read_stable_range',
+    'get_stream_id',
+    'extract_probe_from_path',
     # Oversight functions
     'get_need_nwb',
     'get_rec_ids',

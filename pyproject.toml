@@ -29,10 +29,12 @@ spikeinterface = [
     "np-nwbmaker @ git+https://github.com/EthanKato/np_nwbmaker.git",
 ]
 
-# Motion correction tools (np_utils.motioncorrection) - Future
+# Motion correction tools (np_utils.motioncorrection)
 motioncorrection = [
-    # To be added when motion correction module is implemented
-    # Anticipated: suite2p, opencv-python, scipy
+    "spikeinterface>=0.100",
+    "medicine",
+    "matplotlib>=3.5",
+    "np-nwbmaker @ git+https://github.com/EthanKato/np_nwbmaker.git",
 ]
 
 # Development tools
@@ -51,6 +53,8 @@ all = [
     "spikeinterface>=0.100",
     "neuroconv>=0.4",
     "psutil>=5.8",
+    "medicine",
+    "matplotlib>=3.5",
 ]
 
 [tool.setuptools.packages.find]

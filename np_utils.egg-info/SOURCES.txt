@@ -2,6 +2,7 @@ README.md
 pyproject.toml
 setup.py
 np_utils/__init__.py
+np_utils/core.py
 np_utils/job_utils.py
 np_utils/oversight_utils.py
 np_utils.egg-info/PKG-INFO
@@ -10,7 +11,13 @@ np_utils.egg-info/dependency_links.txt
 np_utils.egg-info/requires.txt
 np_utils.egg-info/top_level.txt
 np_utils/motioncorrection/__init__.py
+np_utils/motioncorrection/motion_correction.py
+np_utils/motioncorrection/motion_utils.py
+np_utils/motioncorrection/run_mc.py
+np_utils/motioncorrection/submit_mc.py
 np_utils/nwbmaker/__init__.py
+np_utils/nwbmaker/np_batch_create.py
+np_utils/nwbmaker/np_make_nwb.py
 np_utils/spikeinterface/__init__.py
 np_utils/spikeinterface/analyzers.py
 np_utils/spikeinterface/io_utils.py

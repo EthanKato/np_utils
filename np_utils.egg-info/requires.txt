@@ -3,19 +3,23 @@ pandas>=1.3
 np-sheets@ git+https://github.com/EthanKato/np_sheet_utils@v0.1.0
 
 [all]
+np-nwbmaker@ git+https://github.com/EthanKato/np_nwbmaker.git
 pynapple>=0.6
 spikeinterface>=0.100
 neuroconv>=0.4
 psutil>=5.8
-np-nwbmaker@ git+https://github.com/EthanKato/np_nwbmaker.git
-pytest
-black
-flake8
 
 [dev]
-pytest
-black
-flake8
+pytest>=7.0
+black>=22.0
+flake8>=4.0
+ipython>=8.0
+jupyter>=1.0
+
+[motioncorrection]
+
+[nwbmaker]
+np-nwbmaker@ git+https://github.com/EthanKato/np_nwbmaker.git
 
 [spikeinterface]
 pynapple>=0.6
