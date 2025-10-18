@@ -440,48 +440,58 @@ Interactive LFP visualization tools for identifying the pial surface in Neuropix
 - ✅ Channel sorting by depth for proper spatial visualization
 - ✅ Optional splicing to recording endpoints for fast preview
 - ✅ Temporal/spatial binning for large datasets
+- ✅ **Peak detection and overlay** for enhanced pial surface identification
 
 #### Quick Start
 
 ```python
 import np_utils as nu
 
-# Find LFP binaries
+# Find LFP and AP binaries
 lf_dict = nu.find_all_neural_binaries("NP156_B1", source='catgt', band='lf')
+ap_dict = nu.find_all_neural_binaries("NP156_B1", source='catgt', band='ap')
 
 # Visualize LFP for pial surface identification
 nu.spikeinterface.plot_lfp_heatmap(
     lfp_path=lf_dict['imec0'],
+    ap_path=ap_dict['imec0'],     # Optional: for peak detection
     title="LFP - NP156_B1 imec0",
-    splice_to_ends=True,  # Fast preview
+    splice_to_ends=True,           # Fast preview
+    detect_peaks=True,             # Show spike peaks overlay
     verbose=True
 )
 ```
 
 #### Main Functions
 
-**`plot_lfp_heatmap(lfp_path, title=None, splice_to_ends=False, verbose=False)`**
+**`plot_lfp_heatmap(lfp_path, ap_path=None, title=None, splice_to_ends=False, detect_peaks=False, peak_threshold=5.0, verbose=False)`**
 
-Main entry point for LFP visualization. Loads LFP binary, applies MTracer-style filtering and decimation, and displays as interactive heatmap.
+Main entry point for LFP visualization. Loads LFP binary, applies MTracer-style filtering and decimation, and displays as interactive heatmap. Optionally detects and overlays spike peaks from AP band to help identify the pial surface.
 
 ```python
 from np_utils.spikeinterface import plot_lfp_heatmap
 
-# Full recording
+# Full recording, no peaks
 plot_lfp_heatmap("path/to/recording.lf.bin")
 
-# Quick preview (start + end only)
+# Quick preview with peak detection
 plot_lfp_heatmap(
-    "path/to/recording.lf.bin",
-    splice_to_ends=True,  # Only processes first/last 50s
-    title="Quick Preview"
+    lfp_path="path/to/recording.lf.bin",
+    ap_path="path/to/recording.ap.bin",  # Required for peak detection
+    splice_to_ends=True,                 # Only processes first/last 50s
+    detect_peaks=True,                   # Show spike peaks overlay
+    peak_threshold=5.0,                  # Detection threshold (MAD units)
+    title="LFP with Peaks"
 )
 ```
 
 **Args:**
 - `lfp_path` (str | Path): Path to LFP binary (.lf.bin)
+- `ap_path` (str | Path, optional): Path to AP binary (.ap.bin) for peak detection
 - `title` (str, optional): Custom plot title
 - `splice_to_ends` (bool): If True, only processes start/end segments (default: False)
+- `detect_peaks` (bool): If True, detect and overlay spike peaks (default: False, requires ap_path)
+- `peak_threshold` (float): Detection threshold in MAD units (default: 5.0)
 - `verbose` (bool): Print progress messages
 
 **`decimate_like_mtracer_fast(data, r=50, n=None)`**
@@ -506,20 +516,33 @@ lfp_decimated = decimate_like_mtracer_fast(lfp, r=50)
 - Cutoff: 25 Hz (for 2500 Hz input, r=50)
 - Direction: Forward-backward (zero-phase)
 
-**`plot_lfp_heatmap_plotly(lfp, fs, time_bin_s=0.1, chan_bin=1, depths_um=None, clip_pct=99.5, title=None)`**
+**`plot_lfp_heatmap_plotly(lfp, fs, time_bin_s=0.1, chan_bin=1, depths_um=None, clip_pct=99.5, title=None, peak_times=None, peak_depths=None, peak_alpha=0.5, peak_size=12.0)`**
 
-Lower-level function for creating plotly heatmaps with custom binning.
+Lower-level function for creating plotly heatmaps with custom binning and optional peak overlay.
 
 ```python
-from np_utils.spikeinterface import plot_lfp_heatmap_plotly
+from np_utils.spikeinterface import plot_lfp_heatmap_plotly, detect_peaks_for_visualization
 
-# High-resolution plot
+# High-resolution plot without peaks
 fig = plot_lfp_heatmap_plotly(
     lfp=lfp_data,
     fs=50,
     time_bin_s=0,  # No temporal binning
     chan_bin=1,    # All channels
     depths_um=depths
+)
+fig.show()
+
+# With peak overlay
+peak_times, _, peak_depths, _ = detect_peaks_for_visualization(recording)
+fig = plot_lfp_heatmap_plotly(
+    lfp=lfp_data,
+    fs=50,
+    depths_um=depths,
+    peak_times=peak_times,     # Overlay detected peaks
+    peak_depths=peak_depths,
+    peak_size=12.0,            # Marker size in pixels
+    peak_alpha=0.5             # Transparency
 )
 fig.show()
 
@@ -546,6 +569,45 @@ rec_splice = splice_recording_to_ends(rec, t0=100, t1=1200, epsilon=50)
 # Contains: [0, 150s] + [1150s, end]
 ```
 
+**`detect_peaks_for_visualization(rec, detect_threshold=5.5, max_peaks=500000, localize=True, job_kwargs=None, preset='rigid_fast')`**
+
+Detect and localize spike peaks from recording for visualization overlay. Uses SpikeInterface's motion-corrected peak detection pipeline with bandpass filtering (300-6000 Hz).
+
+```python
+from np_utils.spikeinterface import detect_peaks_for_visualization
+import spikeinterface.full as si
+
+# Load AP band recording
+rec = si.read_spikeglx(folder, stream_id='imec0.ap')
+
+# Detect peaks with accurate localization
+peak_times, peak_channels, peak_depths, peak_locations = detect_peaks_for_visualization(
+    rec,
+    detect_threshold=5.0,    # MAD units (lower = more peaks)
+    max_peaks=50000,         # Subsample for visualization
+    localize=True,           # Accurate depth localization
+    preset='rigid_fast'      # Motion detection preset
+)
+
+print(f"Detected {len(peak_times)} peaks")
+print(f"Time range: {peak_times.min():.1f} - {peak_times.max():.1f} s")
+print(f"Depth range: {peak_depths.min():.1f} - {peak_depths.max():.1f} μm")
+```
+
+**Args:**
+- `rec` (RecordingExtractor): Recording to detect peaks from (typically AP band)
+- `detect_threshold` (float): Detection threshold in MAD units (default: 5.5)
+- `max_peaks` (int): Maximum peaks to return for visualization (default: 500000)
+- `localize` (bool): Use accurate localization vs channel position (default: True)
+- `job_kwargs` (dict): Job parameters for parallel processing
+- `preset` (str): Motion detection preset (default: 'rigid_fast')
+
+**Returns:**
+- `peak_times` (np.ndarray): Peak times in seconds
+- `peak_channels` (np.ndarray): Channel indices
+- `peak_depths` (np.ndarray): Depth in μm for each peak
+- `peak_locations` (np.ndarray): Full localization array with x, y coordinates
+
 #### Example Jupyter Notebook
 
 See `np_utils/examples/view_lfp_example.ipynb` for a complete example.
@@ -571,33 +633,49 @@ nusi.plot_lfp_heatmap(
 #### Identifying the Pial Surface
 
 The pial surface typically appears as:
-- Transition in LFP amplitude patterns
-- Clearer signals below surface (brain tissue)
-- More noise/artifacts above surface (CSF/outside brain)
-- Changes in temporal dynamics and frequency content
+- **Transition in LFP amplitude patterns**: Sharp change in voltage amplitude
+- **Clearer signals below surface**: Organized activity in brain tissue
+- **More noise/artifacts above surface**: CSF, dura, or outside brain
+- **Changes in temporal dynamics**: Different frequency content and synchrony
+- **Peak detection pattern**: Organized spiking below pial surface, sparse/noisy above
 
-Use the interactive plotly plot to zoom and identify this transition across the recording duration.
+**Using Peak Overlay:**
+When `detect_peaks=True`, spike peaks are overlaid as scatter points on the heatmap. Below the pial surface, peaks form organized patterns following the LFP waves. Above the surface, peaks become sparse, noisy, or absent. This contrast helps identify the exact transition depth.
+
+Use the interactive plotly plot to zoom and pan, toggling the peak overlay (click legend) to identify the pial surface across the recording duration.
 
 #### Technical Notes
 
 **Processing Pipeline:**
 1. Load LFP recording via SpikeInterface
 2. Optional: Splice to start/end segments (fast preview)
-3. Decimate 50x: 2500 Hz → 50 Hz (MTracer-compatible)
-4. Sort channels by depth (y-coordinate)
-5. Bin temporally/spatially for rendering
-6. Display as interactive heatmap
+3. Optional: Load AP band and detect peaks (if `detect_peaks=True`)
+   - Bandpass filter 300-6000 Hz
+   - Detect peaks using locally_exclusive method
+   - Localize peaks for accurate depth estimation
+   - Subsample to max_peaks for visualization
+4. Decimate LFP 50x: 2500 Hz → 50 Hz (MTracer-compatible)
+5. Sort channels by depth (y-coordinate)
+6. Bin temporally/spatially for rendering
+7. Display as interactive heatmap with optional peak overlay
 
 **Performance:**
 - Full recording: ~1-3 minutes for 1-hour session
 - Spliced (start+end): ~10-30 seconds
-- Memory usage: ~120 MB for raw LFP, ~5 MB after decimation
+- Peak detection: +30-120 seconds (depending on recording length and threshold)
+- Memory usage: ~120 MB for raw LFP, ~5 MB after decimation, +50 MB for AP band if detecting peaks
 
 **Dependencies:**
 - spikeinterface
 - scipy (filter design)
 - plotly (interactive plotting)
-- numpy
+
+**Peak Visualization Notes:**
+- Peak markers are rendered in screen pixels, not data coordinates
+- They maintain constant pixel size regardless of zoom level
+- Toggle peaks on/off via legend (click "Detected Peaks")
+- Recommended marker size: 8-12 pixels for visibility at all zoom levels
+- For dense peak patterns, consider increasing `detect_threshold` or reducing `max_peaks`
 
 ---
 

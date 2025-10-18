@@ -33,6 +33,9 @@ from .find_pial_surface import (
     sort_channels_by_depth,
     plot_lfp_heatmap_plotly,
 )
+from .spikeinterface_core import (
+    detect_peaks_for_visualization,
+)
 
 # Remove this line - main() is a CLI entry point, not a library function
 # from .run_si_proc import main as run_si_proc
@@ -53,4 +56,6 @@ __all__ = [
     'decimate_like_mtracer_fast',
     'sort_channels_by_depth',
     'plot_lfp_heatmap_plotly',
+    # SpikeInterface core
+    'detect_peaks_for_visualization',
 ]

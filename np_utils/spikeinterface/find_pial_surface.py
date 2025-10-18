@@ -25,6 +25,8 @@ splice_recording_to_ends : function
 import spikeinterface.full as si
 import spikeinterface.preprocessing as spre
 from spikeinterface import concatenate_recordings
+from spikeinterface.sortingcomponents.peak_detection import detect_peaks
+from spikeinterface.sortingcomponents.peak_localization import localize_peaks
 import numpy as np
 from scipy import signal
 import plotly.graph_objects as go
@@ -32,7 +34,7 @@ from typing import Union
 from pathlib import Path
 
 from ..core import get_neural_binary_folder, parse_binary_path, read_stable_range, extract_rec_id_from_path
-
+from .spikeinterface_core import detect_peaks_for_visualization
 
 def splice_recording_to_ends(rec, t0, t1, epsilon=50):
     """
@@ -186,14 +188,19 @@ def plot_lfp_heatmap_plotly(
     chan_bin=1,
     depths_um=None,
     clip_pct=99.5,
-    title=None
+    title=None,
+    peak_times=None,
+    peak_depths=None,
+    peak_alpha=0.5,
+    peak_size=12.0
 ):
     """
-    Create interactive plotly heatmap of LFP data with optional binning.
+    Create interactive plotly heatmap of LFP data with optional peak overlay.
     
     Generates a plotly figure showing LFP voltage across channels (y-axis)
     and time (x-axis). Supports temporal and spatial binning to reduce
-    data size for faster rendering of large datasets.
+    data size for faster rendering of large datasets. Optionally overlays
+    detected peaks as scatter points.
     
     Parameters
     ----------
@@ -215,6 +222,15 @@ def plot_lfp_heatmap_plotly(
         Uses symmetric limits around 0
     title : str, optional
         Figure title
+    peak_times : np.ndarray, optional
+        Times of detected peaks in seconds (for overlay)
+    peak_depths : np.ndarray, optional
+        Depths of detected peaks in μm (for overlay)
+        Must be provided if peak_times is provided
+    peak_alpha : float, optional
+        Transparency of peak markers (default: 0.3)
+    peak_size : float, optional
+        Size of peak markers (default: 1.0)
     
     Returns
     -------
@@ -227,20 +243,19 @@ def plot_lfp_heatmap_plotly(
     - Spatial binning averages adjacent channels
     - Color scale is centered at 0 with RdBu colormap
     - For large datasets (>100k timepoints), consider binning
+    - Peak overlay helps identify pial surface (clear spikes below, noise above)
     
     Examples
     --------
-    >>> # Basic usage
+    >>> # Basic usage without peaks
     >>> fig = plot_lfp_heatmap_plotly(lfp, fs=50, depths_um=depths)
     >>> fig.show()
     
-    >>> # High resolution (no binning)
-    >>> fig = plot_lfp_heatmap_plotly(lfp, fs=50, time_bin_s=0, 
-    ...                               chan_bin=1, depths_um=depths)
-    
-    >>> # Aggressive binning for fast preview
-    >>> fig = plot_lfp_heatmap_plotly(lfp, fs=50, time_bin_s=1.0,
-    ...                               chan_bin=4, depths_um=depths)
+    >>> # With peak overlay
+    >>> peak_times, _, peak_depths = detect_peaks_for_visualization(rec)
+    >>> fig = plot_lfp_heatmap_plotly(lfp, fs=50, depths_um=depths,
+    ...                               peak_times=peak_times, peak_depths=peak_depths)
+    >>> fig.show()
     """
     T, C = lfp.shape
     
@@ -275,6 +290,7 @@ def plot_lfp_heatmap_plotly(
     v = np.nanpercentile(Z, [100-clip_pct, clip_pct])
     vmax = float(max(abs(v[0]), abs(v[1])))
 
+    # Create figure with heatmap
     fig = go.Figure(data=go.Heatmap(
         z=Z,
         x=t_bins,
@@ -283,21 +299,58 @@ def plot_lfp_heatmap_plotly(
         zmid=0.0,
         zmin=-vmax, zmax=vmax,
         colorbar=dict(title="Voltage (µV)"),
-        showscale=True
+        showscale=True,
+        name='LFP heatmap',
+        showlegend=True,
     ))
+    
+    # Add peak overlay if provided
+    if peak_times is not None and peak_depths is not None:
+        fig.add_trace(go.Scatter(
+            x=peak_times,
+            y=peak_depths,
+            mode='markers',
+            hoverinfo='skip',
+            marker=dict(
+                size=peak_size,
+                sizemin=peak_size,
+                color='black',
+                opacity=peak_alpha,
+                symbol='circle'
+            ),
+            name='Detected Peaks',
+            showlegend=True,
+        ))
+    x_range = [t_bins.min(), t_bins.max()]
+    y_range = [d.min(), d.max()]
+
     fig.update_layout(
         title=title or f"LFP Heatmap (bin={time_bin_s*1000:.0f} ms, chan_bin={chan_bin})",
         xaxis_title="Time (s)",
         yaxis_title="Distance from probe tip (µm)" if depths_um is not None else "Channel",
-        height=700
+        xaxis=dict(range=x_range),
+        yaxis=dict(range=y_range),
+        height=700,
+        legend=dict(
+            x=0.01,              # Left side (1% from left edge)
+            y=0.01,              # Bottom (1% from bottom)
+            xanchor='left',      # Anchor from left edge
+            yanchor='bottom',    # Anchor from bottom
+            bgcolor='rgba(255,255,255,0.8)',  # Semi-transparent background
+            bordercolor='black',
+            borderwidth=1
+        )
     )
     return fig
 
 
 def plot_lfp_heatmap(
     lfp_path: Union[str, Path], 
+    ap_path: Union[str, Path] = None,
     title: str = None, 
-    splice_to_ends: bool = False, 
+    splice_to_ends: bool = False,
+    detect_peaks: bool = False,
+    peak_threshold: float = 5.0,
     verbose: bool = False
 ):
     """
@@ -305,10 +358,12 @@ def plot_lfp_heatmap(
     
     Main entry point for LFP visualization. Loads LFP binary, applies
     MTracer-style filtering and decimation, sorts channels by depth, and
-    displays as an interactive plotly heatmap.
+    displays as an interactive plotly heatmap. Optionally detects and overlays
+    peaks to help identify the pial surface.
     
     The pial surface typically appears as a transition in LFP amplitude and
     patterns, with clearer signals below the surface and more noise above.
+    Peak detection helps visualize this: organized spiking below, noise above.
     
     Parameters
     ----------
@@ -322,6 +377,12 @@ def plot_lfp_heatmap(
         If True, only processes start/end segments of recording (default: False)
         Useful for quick preview of full recording duration
         Uses stable range from config/sheets to determine splice points
+    detect_peaks : bool, optional
+        If True, detect and overlay peaks on heatmap (default: False)
+        Helps identify pial surface transition
+    peak_threshold : float, optional
+        Detection threshold in MAD units (default: 5.0)
+        Only used if detect_peaks=True
     verbose : bool, optional
         Print progress messages (default: False)
     
@@ -336,33 +397,39 @@ def plot_lfp_heatmap(
     1. Load LFP recording via SpikeInterface
     2. Optional: Splice to start/end segments
     3. Decimate 50x: 2500 Hz → 50 Hz (MTracer-compatible)
-    4. Sort channels by depth (y-coordinate)
-    5. Bin temporally/spatially for faster rendering
-    6. Display as interactive heatmap
+    4. Optional: Detect peaks from raw recording (before decimation)
+    5. Sort channels by depth (y-coordinate)
+    6. Bin temporally/spatially for faster rendering
+    7. Display as interactive heatmap with optional peak overlay
     
     The decimation uses a 10th-order elliptic filter to prevent aliasing,
     exactly matching MTracer's approach.
     
+    Peak detection uses SpikeInterface's locally_exclusive method with
+    threshold=5 MAD by default. Peaks are subsampled to 50k for visualization.
+    
     Examples
     --------
-    >>> # Basic usage - full recording
+    >>> # Basic usage - full recording, no peaks
     >>> from np_utils.spikeinterface import plot_lfp_heatmap
     >>> plot_lfp_heatmap("path/to/recording.lf.bin")
     
-    >>> # Quick preview with splicing
+    >>> # Quick preview with peak overlay
     >>> plot_lfp_heatmap("path/to/recording.lf.bin", 
     ...                  splice_to_ends=True,
-    ...                  title="Quick preview")
+    ...                  detect_peaks=True,
+    ...                  title="Quick preview with peaks")
     
     >>> # From core utilities
     >>> import np_utils as nu
     >>> lf_dict = nu.find_all_neural_binaries("NP156_B1", band='lf')
-    >>> nu.spikeinterface.plot_lfp_heatmap(lf_dict['imec0'])
+    >>> nu.spikeinterface.plot_lfp_heatmap(lf_dict['imec0'], detect_peaks=True)
     
     See Also
     --------
     decimate_like_mtracer_fast : Filtering and decimation details
     plot_lfp_heatmap_plotly : Lower-level plotting function
+    detect_peaks_for_visualization : Peak detection for overlay
     splice_recording_to_ends : Segment extraction
     
     References
@@ -371,10 +438,10 @@ def plot_lfp_heatmap(
     https://github.com/yaxigeigei/MTracer
     """
     if verbose:
-        print("Loading LFP data and decimating...")
+        print("Loading LFP data...")
     raw_rec = si.read_spikeglx(
-        folder_path= get_neural_binary_folder(lfp_path),
-        stream_id= parse_binary_path(lfp_path)['stream_id']
+        folder_path=get_neural_binary_folder(lfp_path),
+        stream_id=parse_binary_path(lfp_path)['stream_id']
     )
     raw_rec.shift_times(-raw_rec.get_start_time())
 
@@ -383,18 +450,54 @@ def plot_lfp_heatmap(
         try:
             t0, t1 = read_stable_range(REC_ID)
         except Exception as e:
-            print(f"Warning: Could not read stable range for {REC_ID}: {e}")
+            if verbose:
+                print(f"Warning: Could not read stable range for {REC_ID}: {e}")
             t0, t1 = 0, raw_rec.get_total_duration()
         raw_rec = splice_recording_to_ends(raw_rec, t0, t1, epsilon=50)
+    
+    # Detect peaks before decimation (if requested)
+    peak_times, peak_depths = None, None
+    if detect_peaks and ap_path is not None:
+        ap_rec = si.read_spikeglx(
+            folder_path=get_neural_binary_folder(ap_path),
+            stream_id=parse_binary_path(ap_path)['stream_id']
+        )
+        ap_rec.shift_times(-ap_rec.get_start_time())
+        if splice_to_ends:
+            ap_rec = splice_recording_to_ends(ap_rec, t0, t1, epsilon=50)
+
+        if verbose:
+            print("Detecting peaks...")
+        peak_times, _, peak_depths, peak_locations = detect_peaks_for_visualization(
+            ap_rec,
+            detect_threshold=peak_threshold,
+            max_peaks=50000,
+        )
+        if verbose:
+            print(f"  Detected {len(peak_times)} peaks for visualization")
+    
+    # Decimate LFP
+    if verbose:
+        print("Decimating LFP...")
     decimation_factor = 50
     lfp = raw_rec.get_traces(return_in_uV=True)
     lfp_decimated = decimate_like_mtracer_fast(lfp, r=decimation_factor)
 
     fs_new = raw_rec.get_sampling_frequency() / decimation_factor
     time = np.arange(lfp_decimated.shape[0]) / fs_new
-    sorted_lfp, sorted_depths = sort_channels_by_depth(lfp_decimated, raw_rec)  # shape (T, C)
+    sorted_lfp, sorted_depths = sort_channels_by_depth(lfp_decimated, raw_rec)
 
-    fig = plot_lfp_heatmap_plotly(sorted_lfp, fs_new, title=title, time_bin_s=0.10, chan_bin=1, depths_um=sorted_depths)
+    if verbose:
+        print("Creating plot...")
+    fig = plot_lfp_heatmap_plotly(
+        sorted_lfp, fs_new,
+        title=title,
+        time_bin_s=0.10,
+        chan_bin=1,
+        depths_um=sorted_depths,
+        peak_times=peak_times,
+        peak_depths=peak_depths,
+        peak_alpha=0.4,
+        peak_size=3.0
+    )
     fig.show()
-
-
