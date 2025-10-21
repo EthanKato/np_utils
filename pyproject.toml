@@ -34,7 +34,7 @@ spikeinterface = [
 # Motion correction tools (np_utils.motioncorrection)
 motioncorrection = [
     "spikeinterface>=0.100",
-    "medicine",
+    "medicine-neuro",
     "matplotlib>=3.5",
     "np-nwbmaker @ git+https://github.com/EthanKato/np_nwbmaker.git",
 ]
@@ -57,7 +57,7 @@ all = [
     "psutil>=5.8",
     "scipy>=1.7",
     "plotly>=5.0",
-    "medicine",
+    "medicine-neuro",
     "matplotlib>=3.5",
 ]
 

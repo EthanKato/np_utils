@@ -1,0 +1,72 @@
+# Launch remote Jupyter Lab with automatic port selection and local tunnel (macOS-safe)
+localize() {
+  # --- config ---
+  local host="spirit.cin.ucsf.edu"
+  local user="ekato"                     
+  local ssh_port=7777
+  local env="/scratch/ekato/env_dev/recon"
+  local workdir="/userdata/ekato/scripts/jupyter_notebooks"
+
+  # --- find a free LOCAL port 8888..8999 ---
+  local lp=8888
+  while lsof -iTCP:$lp -sTCP:LISTEN >/dev/null 2>&1; do
+    lp=$((lp+1))
+    if [ $lp -gt 8999 ]; then
+      echo "❌ No free local ports in 8888–8999."
+      return 1
+    fi
+  done
+
+  # --- find a free REMOTE port ---
+  local rp
+  rp=$(ssh -p "$ssh_port" "$user@$host" "python3 - <<'PY'
+import socket
+s=socket.socket()
+s.bind(('', 0))
+print(s.getsockname()[1])
+s.close()
+PY" 2>/dev/null | tail -n1)
+
+  if ! [[ "$rp" =~ ^[0-9]+$ ]]; then
+    echo "❌ Could not obtain a free remote port."
+    return 1
+  fi
+
+  # --- remote command to start Jupyter on that port ---
+  local rcmd="
+    source ~/.bashrc >/dev/null 2>&1 || true
+    mamba activate \"$env\" >/dev/null 2>&1 && \
+    cd \"$workdir\" && \
+    \"$env/bin/python\" -m jupyter lab --no-browser --port=$rp --ServerApp.port_retries=0
+  "
+
+  echo "🔌 Forwarding localhost:${lp}  →  ${host}:${rp}"
+  echo "🚀 Launching Jupyter on ${host} (remote port ${rp})…"
+
+  # macOS/BSD-safe mktemp creates a unique file and prints its path
+  local tmp_log
+  tmp_log="$(mktemp -t localize.log.XXXXXX)"
+
+  # SSH with robust options; stream logs; print localhost URL when seen
+  ssh -t \
+    -o ExitOnForwardFailure=yes \
+    -o ServerAliveInterval=30 \
+    -o ServerAliveCountMax=2 \
+    -p "$ssh_port" -L "${lp}:localhost:${rp}" "$user@$host" "$rcmd" 2>&1 \
+  | tee "$tmp_log" \
+  | awk -v lp="$lp" -v rp="$rp" -v log="$tmp_log" '
+      BEGIN { printed=0 }
+      {
+        print
+        if (!printed && match($0, "http://[^ ]+:" rp "/[^ ]*")) {
+          url = substr($0, RSTART, RLENGTH)
+          gsub("http://[^:]+:" rp "/", "http://localhost:" lp "/", url)
+          printf("\n✅ Jupyter is up on remote port %s.\n👉 Open: %s\n\n", rp, url)
+          printed = 1
+        }
+      }
+      END {
+        if (!printed)
+          printf("\n⚠️  Did not detect a Jupyter URL on port %s. Check logs: %s\n", rp, log)
+      }'
+}
