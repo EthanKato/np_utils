@@ -15,6 +15,7 @@ from spikeinterface.sortingcomponents.peak_detection import detect_peaks
 from spikeinterface.sortingcomponents.peak_localization import localize_peaks
 from spikeinterface.core.motion import Motion
 import json
+import shutil
 
 try:
     from medicine import run_medicine
@@ -448,4 +449,91 @@ def plot_drift_maps_before_after(
 
     plt.close(fig)
     return output_path
+
+def reorganize_motion_traces(motion_traces_path, dry_run=True):
+    """
+    Reorganize motion traces directory structure.
+    
+    For each algorithm subdirectory in motion_traces_path, creates a new
+    subdirectory named NPXXX_BXX_imec0 and moves all existing files into it.
+    
+    Parameters
+    ----------
+    motion_traces_path : str or Path
+        Path to the motion_traces directory (e.g., /path/to/NP0123_B01/motion_traces)
+    dry_run : bool, default=True
+        If True, only print what would be done without making changes
+    
+    Example
+    -------
+    >>> reorganize_motion_traces('/path/to/NP0123_B01/motion_traces', dry_run=True)
+    >>> reorganize_motion_traces('/path/to/NP0123_B01/motion_traces', dry_run=False)
+    """
+    motion_traces_path = Path(motion_traces_path)
+    
+    # Extract the session name (NPXXX_BXX) from the parent directory
+    session_name = motion_traces_path.parent.name
+    new_subdir_name = f"{session_name}_imec0"
+    
+    print(f"Session: {session_name}")
+    print(f"Motion traces path: {motion_traces_path}")
+    print(f"New subdirectory name: {new_subdir_name}")
+    print(f"Dry run: {dry_run}")
+    print("-" * 80)
+    
+    if not motion_traces_path.exists():
+        print(f"ERROR: Path does not exist: {motion_traces_path}")
+        return
+    
+    # Get all subdirectories (algorithm directories)
+    algo_dirs = [d for d in motion_traces_path.iterdir() if d.is_dir()]
+    
+    if not algo_dirs:
+        print(f"No subdirectories found in {motion_traces_path}")
+        return
+    
+    print(f"Found {len(algo_dirs)} algorithm directories:")
+    for algo_dir in algo_dirs:
+        print(f"  - {algo_dir.name}")
+    print()
+    
+    # Process each algorithm directory
+    for algo_dir in algo_dirs:
+        print(f"\nProcessing: {algo_dir.name}/")
+        
+        # Get all files and directories in this algorithm directory
+        contents = list(algo_dir.iterdir())
+        
+        if not contents:
+            print(f"  └─ (empty, skipping)")
+            continue
+        
+        # Path for the new subdirectory
+        new_subdir = algo_dir / new_subdir_name
+        
+        # Check if new subdirectory already exists
+        if new_subdir.exists():
+            print(f"  └─ WARNING: {new_subdir_name}/ already exists, skipping")
+            continue
+        
+        print(f"  └─ Creating: {new_subdir_name}/")
+        if not dry_run:
+            new_subdir.mkdir(exist_ok=True)
+        
+        # Move all contents into the new subdirectory
+        for item in contents:
+            rel_name = item.name
+            dest = new_subdir / rel_name
+            
+            print(f"     └─ Moving: {rel_name} → {new_subdir_name}/{rel_name}")
+            
+            if not dry_run:
+                shutil.move(str(item), str(dest))
+    
+    print("\n" + "=" * 80)
+    if dry_run:
+        print("DRY RUN COMPLETE - No changes were made")
+        print("Set dry_run=False to execute the reorganization")
+    else:
+        print("REORGANIZATION COMPLETE")
 

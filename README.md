@@ -493,6 +493,11 @@ plot_lfp_heatmap(
 - `detect_peaks` (bool): If True, detect and overlay spike peaks (default: False, requires ap_path)
 - `peak_threshold` (float): Detection threshold in MAD units (default: 5.0)
 - `verbose` (bool): Print progress messages
+- `max_peaks` (int): Maximum number of peaks to detect and display (randomly subsampled) (default: 50000)
+- `buffer_seconds` (int): Buffer time in seconds around stable range splicing (default: 50)
+- `peak_alpha` (float): Transparency of peak markers (default: 0.4)
+- `peak_size` (float): Size of peak markers in pixels (default: 3.0)
+
 
 **`decimate_like_mtracer_fast(data, r=50, n=None)`**
 

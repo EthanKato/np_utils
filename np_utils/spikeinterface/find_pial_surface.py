@@ -351,7 +351,11 @@ def plot_lfp_heatmap(
     splice_to_ends: bool = False,
     detect_peaks: bool = False,
     peak_threshold: float = 5.0,
-    verbose: bool = False
+    verbose: bool = False,
+    max_peaks: int = 50000,
+    buffer_seconds: int = 50,
+    peak_alpha: float = 0.4,
+    peak_size: float = 3.0
 ):
     """
     Load, process, and visualize LFP data for pial surface identification.
@@ -385,6 +389,16 @@ def plot_lfp_heatmap(
         Only used if detect_peaks=True
     verbose : bool, optional
         Print progress messages (default: False)
+    max_peaks : int, optional
+        Maximum number of peaks to return for visualization (default: 50000)
+        If more peaks detected, randomly subsample to this number
+        Keeps visualization responsive
+    buffer_seconds : int, optional
+        Duration in seconds to buffer around the stable range (default: 50)
+    peak_alpha : float, optional
+        Transparency of peak markers (default: 0.4)
+    peak_size : float, optional
+        Size of peak markers (default: 3.0)
     
     Returns
     -------
@@ -453,7 +467,7 @@ def plot_lfp_heatmap(
             if verbose:
                 print(f"Warning: Could not read stable range for {REC_ID}: {e}")
             t0, t1 = 0, raw_rec.get_total_duration()
-        raw_rec = splice_recording_to_ends(raw_rec, t0, t1, epsilon=50)
+        raw_rec = splice_recording_to_ends(raw_rec, t0, t1, epsilon=buffer_seconds)
     
     # Detect peaks before decimation (if requested)
     peak_times, peak_depths = None, None
@@ -464,14 +478,14 @@ def plot_lfp_heatmap(
         )
         ap_rec.shift_times(-ap_rec.get_start_time())
         if splice_to_ends:
-            ap_rec = splice_recording_to_ends(ap_rec, t0, t1, epsilon=50)
+            ap_rec = splice_recording_to_ends(ap_rec, t0, t1, epsilon=buffer_seconds)
 
         if verbose:
             print("Detecting peaks...")
         peak_times, _, peak_depths, peak_locations = detect_peaks_for_visualization(
             ap_rec,
             detect_threshold=peak_threshold,
-            max_peaks=50000,
+            max_peaks=max_peaks,
         )
         if verbose:
             print(f"  Detected {len(peak_times)} peaks for visualization")
@@ -484,7 +498,6 @@ def plot_lfp_heatmap(
     lfp_decimated = decimate_like_mtracer_fast(lfp, r=decimation_factor)
 
     fs_new = raw_rec.get_sampling_frequency() / decimation_factor
-    time = np.arange(lfp_decimated.shape[0]) / fs_new
     sorted_lfp, sorted_depths = sort_channels_by_depth(lfp_decimated, raw_rec)
 
     if verbose:
@@ -497,7 +510,7 @@ def plot_lfp_heatmap(
         depths_um=sorted_depths,
         peak_times=peak_times,
         peak_depths=peak_depths,
-        peak_alpha=0.4,
-        peak_size=3.0
+        peak_alpha=peak_alpha,
+        peak_size=peak_size
     )
     fig.show()

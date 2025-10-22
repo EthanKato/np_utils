@@ -12,6 +12,7 @@ from .motion_utils import (
     save_peak_map,
     save_motion_traces,
     plot_drift_maps_before_after,
+    reorganize_motion_traces,
 )
 from .submit_mc import submit_motion_jobs, build_probe_job_list
 
@@ -28,5 +29,6 @@ __all__ = [
     'save_peak_map',
     'save_motion_traces',
     'plot_drift_maps_before_after',
+    'reorganize_motion_traces',
 ]
 
