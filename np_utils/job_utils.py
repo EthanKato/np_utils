@@ -136,7 +136,7 @@ def _submit_single_job(
     extra_args: Optional[List[str]],
     executable: Optional[str],
     gpus: Optional[int],
-    dry_run: bool
+    dry_run: bool,
 ):
     """Internal function to submit a single job."""
     # Build job name
@@ -176,7 +176,7 @@ def _submit_single_job(
            "-o", str(logfile), "-n", jobname]
     
     # Add cores or GPUs
-    if gpus is not None:
+    if "gpu" in queue and gpus is not None:
         cmd.extend(["-g", str(gpus)])
     else:
         cmd.extend(["-c", str(cores)])

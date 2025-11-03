@@ -2,10 +2,10 @@
 localize() {
   # --- config ---
   local host="spirit.cin.ucsf.edu"
-  local user="ekato"                     
+  local user="$USER"                     
   local ssh_port=7777
   local env="/scratch/ekato/env_dev/recon"
-  local workdir="/userdata/ekato/scripts/jupyter_notebooks"
+  local workdir="/userdata/ekato/git_repos/np_utils/reconviewer"
 
   # --- find a free LOCAL port 8888..8999 ---
   local lp=8888

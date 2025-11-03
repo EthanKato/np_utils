@@ -4,6 +4,7 @@ Batch submission script for SpikeInterface processing.
 Submits SI processing jobs for all recordings that have NWB files
 but haven't been processed yet.
 """
+from subprocess import getoutput
 import numpy as np
 from ..job_utils import submit_rec_queue
 from ..oversight_utils import get_rec_ids
@@ -15,7 +16,7 @@ def main():
     # Find recordings that have NWB but need SI
     have_nwb = get_rec_ids("NWB", lambda col: col != "")
     need_si = get_rec_ids("SI", lambda col: col == "")
-    run_queue = np.intersect1d(have_nwb, need_si).tolist()
+    run_queue = ["NP37_B1", "NP37_B2", "NP55_B3", "NP89_B1"]#np.intersect1d(have_nwb, need_si).tolist()
     
     print(f"Found {len(run_queue)} recordings to process: {run_queue}")
     
@@ -23,14 +24,15 @@ def main():
         rec_ids=run_queue,
         script="-m np_utils.spikeinterface.run_si_proc",
         python_executable=ENV_PATH,
-        queue="mind-batch",
+        queue="mind-gpu",
         cores=9,
         memory_gb=256,
         log_dir="/data_store2/neuropixels/nwb/temp/SI_logs",
         job_prefix="SI",
         use_time=True,
-        max_concurrent=3,
-        check_interval=30
+        max_concurrent=4,
+        check_interval=30,
+        gpus=1,
     )
 
 
