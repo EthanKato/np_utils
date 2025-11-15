@@ -66,7 +66,7 @@ def detect_peaks_for_visualization(
     Examples
     --------
     >>> import spikeinterface.full as si
-    >>> from np_utils.spikeinterface import detect_peaks_for_visualization
+    >>> from np_utils.si_utils import detect_peaks_for_visualization
     >>> 
     >>> # Load AP band
     >>> rec = si.read_spikeglx(folder, stream_id='imec0.ap')

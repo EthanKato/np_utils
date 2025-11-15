@@ -29,7 +29,7 @@ from spikeinterface.sortingcomponents.peak_detection import detect_peaks
 from spikeinterface.sortingcomponents.peak_localization import localize_peaks
 import numpy as np
 from scipy import signal
-import plotly.graph_objects as go
+#import plotly.graph_objects as go
 from typing import Union
 from pathlib import Path
 
@@ -194,6 +194,7 @@ def plot_lfp_heatmap_plotly(
     peak_alpha=0.5,
     peak_size=12.0
 ):
+    import plotly.graph_objects as go 
     """
     Create interactive plotly heatmap of LFP data with optional peak overlay.
     
@@ -425,7 +426,7 @@ def plot_lfp_heatmap(
     Examples
     --------
     >>> # Basic usage - full recording, no peaks
-    >>> from np_utils.spikeinterface import plot_lfp_heatmap
+    >>> from np_utils.si_utils import plot_lfp_heatmap
     >>> plot_lfp_heatmap("path/to/recording.lf.bin")
     
     >>> # Quick preview with peak overlay
@@ -437,7 +438,7 @@ def plot_lfp_heatmap(
     >>> # From core utilities
     >>> import np_utils as nu
     >>> lf_dict = nu.find_all_neural_binaries("NP156_B1", band='lf')
-    >>> nu.spikeinterface.plot_lfp_heatmap(lf_dict['imec0'], detect_peaks=True)
+    >>> nu.si_utils.plot_lfp_heatmap(lf_dict['imec0'], detect_peaks=True)
     
     See Also
     --------

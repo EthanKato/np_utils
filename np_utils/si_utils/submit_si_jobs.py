@@ -22,7 +22,7 @@ def main():
     
     submit_rec_queue(
         rec_ids=run_queue,
-        script="-m np_utils.spikeinterface.run_si_proc",
+        script="-m np_utils.si_utils.run_si_proc",
         python_executable=ENV_PATH,
         queue="mind-gpu",
         cores=9,

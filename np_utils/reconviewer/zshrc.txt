@@ -5,7 +5,8 @@ localize() {
   local user="$USER"                     
   local ssh_port=7777
   local env="/scratch/ekato/env_dev/recon"
-  local workdir="/userdata/ekato/git_repos/np_utils/reconviewer"
+  # Update local workdir to YOUR reconviewer directory path
+  local workdir="/userdata/ekato/git_repos/np_utils/np_utils/reconviewer/" 
 
   # --- find a free LOCAL port 8888..8999 ---
   local lp=8888

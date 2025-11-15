@@ -24,12 +24,12 @@ from ..core import find_all_neural_binaries
 # Recording IDs to process (or use get_rec_ids to pull from sheets)
 # Example: REC_IDS = get_rec_ids("NP_motion_correction_queue")
 REC_IDS = [
-    "NP156_B1"
+    "NP134_B2"
 ]
 
 # Motion correction presets to run
 # Options: dredge, dredge_fast, dredge_th6, kilosort_like, medicine_SI, medicine_ndbN
-PRESETS = ["dredge", "medicine_ndb4", "medicine_nbd2"]
+PRESETS = ["dredge_fast", "dredge", "medicine_ndb4", "medicine_ndb2", "kilosort_like"]
 
 # Preprocessing source ('catgt' or 'mc')
 # This should never be 'mc' for motion correction jobs

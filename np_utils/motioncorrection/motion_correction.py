@@ -69,7 +69,7 @@ class MotionCorrection:
         self.rec_id = rec_id
         self.probe_id = probe_id
         self.subject, self.block = parse_rec_id(rec_id)
-        self.out_base = Path(out_base) if out_base is not None else Path(f"/data_store2/neuropixels/preproc/{rec_id}/motion_traces/{probe_id}")
+        self.out_base = Path(out_base) if out_base is not None else Path(f"/data_store2/neuropixels/preproc/{rec_id}/motion_traces/")
         self.job_kwargs = dict(
             n_jobs=n_jobs, 
             chunk_duration=chunk_duration, 
@@ -247,7 +247,7 @@ class MotionCorrection:
         if self.rec is None:
             raise ValueError("Must call load_and_preprocess() before run_preset()")
         
-        folder = self.out_base / preset
+        folder = self.out_base / preset / f"{self.rec_id}__g0_{self.probe_id}"
         
         if folder.exists() and not replace:
             print(f"[MC] Preset folder exists, skipping: {folder}")
@@ -255,7 +255,8 @@ class MotionCorrection:
         
         if folder.exists() and replace:
             shutil.rmtree(folder)
-        folder.mkdir(parents=True, exist_ok=True)
+            
+        folder.parent.mkdir(parents=True, exist_ok=True)
         
         # Run motion correction based on preset
         if preset == "dredge_th6":

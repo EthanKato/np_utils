@@ -20,7 +20,7 @@ def main():
     args = parser.parse_args()
     
     # Construct full output path
-    outdir = Path(args.out_base) / args.rec_id / "motion_traces" / args.probe_id
+    outdir = Path(args.out_base) / args.rec_id / "motion_traces"
     
     mc = MotionCorrection(rec_id=args.rec_id, probe_id=args.probe_id, out_base=outdir)
     mc.resolve_ap_path(source=args.source)

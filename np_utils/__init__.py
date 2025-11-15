@@ -5,7 +5,7 @@ np_utils: A collection of reusable neurophysiology utility functions.
 This package provides tools for:
 - Job submission and queue management (job_utils)
 - Google Sheets oversight and metadata tracking (oversight_utils)  
-- SpikeInterface processing pipelines (spikeinterface)
+- SpikeInterface processing pipelines (si_utils)
 - NWB batch creation and conversion (nwbmaker)
 - Motion correction analysis and batch processing (motioncorrection)
 - Common parsing and formatting utilities (core)
@@ -49,7 +49,7 @@ from .job_utils import (
 from . import core
 from . import oversight_utils
 from . import job_utils
-from . import spikeinterface
+from . import si_utils
 from . import nwbmaker
 from . import motioncorrection
 
@@ -83,7 +83,7 @@ __all__ = [
     'core',
     'oversight_utils',
     'job_utils',
-    'spikeinterface',
+    'si_utils',
     'nwbmaker',
     'motioncorrection',
 ]
