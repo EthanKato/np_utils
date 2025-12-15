@@ -35,6 +35,9 @@ A comprehensive collection of reusable utilities for neurophysiology data proces
 ## Installation
 
 ### Basic Installation (core utilities only)
+
+First clone the repo 
+
 ```bash
 cd /path/to/np_utils
 pip install -e .
