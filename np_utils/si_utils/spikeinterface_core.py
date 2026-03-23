@@ -2,8 +2,9 @@ from spikeinterface.sortingcomponents.peak_detection import detect_peaks
 from spikeinterface.sortingcomponents.peak_localization import localize_peaks
 from spikeinterface.core import get_noise_levels, fix_job_kwargs
 from spikeinterface.preprocessing import bandpass_filter, motion
-
+from pathlib import Path
 import numpy as np
+import json
 
 def detect_peaks_for_visualization(
     rec, 
@@ -11,7 +12,8 @@ def detect_peaks_for_visualization(
     max_peaks: int = 500000,
     localize: bool = True,
     job_kwargs: dict = None,
-    preset: str = 'rigid_fast'
+    preset: str = 'rigid_fast',
+    cache_dir: Path = None,
 ):
     """
     Detect and localize spike peaks for visualization overlay on LFP heatmaps.
@@ -111,7 +113,6 @@ def detect_peaks_for_visualization(
     # Detect peaks
     peaks = detect_peaks(recording=rec, 
     noise_levels=noise_levels, 
-    pipeline_nodes=None, 
     **job_kwargs, 
     **detect_kwargs)
     
@@ -130,6 +131,15 @@ def detect_peaks_for_visualization(
         # Fast: use channel y-coordinate
         channel_locs = rec.get_channel_locations()
         peak_depths = channel_locs[peak_channels, 1]
+
+    if cache_dir is not None:
+        cache_dir = Path(cache_dir)
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        np.save(cache_dir / 'peaks.npy', peaks)
+        np.save(cache_dir / 'peak_locations.npy', peak_locations)
+        np.save(cache_dir / 'peak_times.npy', peak_times)
+        with (cache_dir / "parameters.json").open("w", encoding="utf-8") as f:
+            json.dump(params, f, indent=2, default=str)
     
     # Subsample if too many peaks
     if len(peak_times) > max_peaks:

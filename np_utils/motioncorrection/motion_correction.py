@@ -50,6 +50,8 @@ class MotionCorrection:
         self,
         rec_id: str,
         out_base: Optional[Path] = None,
+        pial_surface: int = None,
+        bad_channels: List[str] = None,
         probe_id: str = "imec0",
         n_jobs: int = 16,
         chunk_duration: str = "1s",
@@ -69,13 +71,14 @@ class MotionCorrection:
         self.rec_id = rec_id
         self.probe_id = probe_id
         self.subject, self.block = parse_rec_id(rec_id)
+        self.pial_surface = pial_surface
+        self.bad_channels = bad_channels
         self.out_base = Path(out_base) if out_base is not None else Path(f"/data_store2/neuropixels/preproc/{rec_id}/motion_traces/")
         self.job_kwargs = dict(
             n_jobs=n_jobs, 
             chunk_duration=chunk_duration, 
             progress_bar=progress_bar
         )
-
         # Will be populated by resolve_ap_path and load_and_preprocess
         self.ap_path: Optional[Path] = None
         self.raw_rec = None
@@ -187,6 +190,20 @@ class MotionCorrection:
             stream_id=stream_id
         )
         self.raw_rec.shift_times(-self.raw_rec.get_start_time())
+
+        # Filter superpial channels 
+        if self.pial_surface is not None:
+            print(f"[MC] Filtering superpial channels: {self.pial_surface} µm")
+            chan_ids = self.raw_rec.get_channel_ids()
+            locs = self.raw_rec.get_channel_locations()
+            depths = locs[:, 1]
+            superpial_channels = [cid for cid, y in zip(chan_ids, depths) if y > self.pial_surface]
+            print(f"[MC] Removing {len(superpial_channels)} superpial channels: {superpial_channels}")
+            self.raw_rec = self.raw_rec.remove_channels(superpial_channels)
+
+        if self.bad_channels is not None:
+            print(f"[MC] Filtering bad channels: {self.bad_channels}")
+            self.raw_rec = self.raw_rec.remove_channels(self.bad_channels)
         
         # Determine stable range
         if t0 is not None and t1 is not None:
@@ -247,7 +264,7 @@ class MotionCorrection:
         if self.rec is None:
             raise ValueError("Must call load_and_preprocess() before run_preset()")
         
-        folder = self.out_base / preset / f"{self.rec_id}__g0_{self.probe_id}"
+        folder = self.out_base / preset / f"{self.rec_id}_g0_{self.probe_id}"
         
         if folder.exists() and not replace:
             print(f"[MC] Preset folder exists, skipping: {folder}")

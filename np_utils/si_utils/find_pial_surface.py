@@ -351,6 +351,7 @@ def plot_lfp_heatmap(
     title: str = None, 
     splice_to_ends: bool = False,
     detect_peaks: bool = False,
+    plotting_cache: Path = None,
     peak_threshold: float = 5.0,
     verbose: bool = False,
     max_peaks: int = 50000,
@@ -458,6 +459,7 @@ def plot_lfp_heatmap(
         folder_path=get_neural_binary_folder(lfp_path),
         stream_id=parse_binary_path(lfp_path)['stream_id']
     )
+    rec_duration = raw_rec.get_total_duration()
     raw_rec.shift_times(-raw_rec.get_start_time())
 
     if splice_to_ends:
@@ -472,7 +474,33 @@ def plot_lfp_heatmap(
     
     # Detect peaks before decimation (if requested)
     peak_times, peak_depths = None, None
-    if detect_peaks and ap_path is not None:
+    if plotting_cache is not None:
+        peak_times = np.load(plotting_cache / 'peak_times.npy')
+        peak_locations = np.load(plotting_cache / 'peak_locations.npy')
+        peak_depths = peak_locations['y']
+
+        if splice_to_ends:
+            start_mask = peak_times < t0 + buffer_seconds 
+            start_peaks = peak_times[start_mask]
+
+            end_mask = peak_times > (t1 - buffer_seconds)
+            end_peaks = peak_times[end_mask]
+
+            shift_amount = (t1 - t0 - 2 * buffer_seconds)
+            end_peaks_shifted = end_peaks - shift_amount
+
+            peak_times = np.concatenate([start_peaks, end_peaks_shifted])
+            peak_depths = np.concatenate([peak_depths[start_mask], peak_depths[end_mask]])
+
+            if len(peak_times) > max_peaks:
+                idx = np.random.choice(len(peak_times), max_peaks, replace=False)
+                peak_times = peak_times[idx]
+                peak_depths = peak_depths[idx]
+        
+        if verbose:
+            print(f"Loaded {len(peak_times)} peaks from cache")
+        
+    elif detect_peaks and ap_path is not None:
         ap_rec = si.read_spikeglx(
             folder_path=get_neural_binary_folder(ap_path),
             stream_id=parse_binary_path(ap_path)['stream_id']
@@ -483,26 +511,53 @@ def plot_lfp_heatmap(
 
         if verbose:
             print("Detecting peaks...")
+        cache_dir = Path(ap_path).parent / 'plotting_cache'
+        cache_dir.mkdir(parents=True, exist_ok=True)
         peak_times, _, peak_depths, peak_locations = detect_peaks_for_visualization(
             ap_rec,
             detect_threshold=peak_threshold,
             max_peaks=max_peaks,
+            cache_dir=cache_dir,
         )
         if verbose:
             print(f"  Detected {len(peak_times)} peaks for visualization")
     
     # Decimate LFP
-    if verbose:
-        print("Decimating LFP...")
     decimation_factor = 50
-    lfp = raw_rec.get_traces(return_in_uV=True)
-    lfp_decimated = decimate_like_mtracer_fast(lfp, r=decimation_factor)
+    if plotting_cache is not None:
+        try:
+            sorted_lfp = np.load(plotting_cache / "sorted_decimated_lfp.npy")
+            sorted_depths = np.load(plotting_cache / "sorted_decimated_depths.npy")
+            fs_new = float(np.load(plotting_cache / "decimated_fs.npy"))
+        except Exception as e:
+            if verbose:
+                print(f"Warning: Could not load LFP plot cache: {e}")
+            if verbose:
+                print("Decimating LFP...")
+            lfp = raw_rec.get_traces(return_in_uV=True)
+            lfp_decimated = decimate_like_mtracer_fast(lfp, r=decimation_factor)
+            fs_new = raw_rec.get_sampling_frequency() / decimation_factor
+            sorted_lfp, sorted_depths = sort_channels_by_depth(lfp_decimated, raw_rec)
+            np.save(plotting_cache / "sorted_decimated_lfp.npy", sorted_lfp)
+            np.save(plotting_cache / "sorted_decimated_depths.npy", sorted_depths)
+            np.save(plotting_cache / "decimated_fs.npy", np.array(fs_new))
+    else:
+        cache_dir = Path(ap_path).parent / 'plotting_cache'
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        if verbose:
+            print("Decimating LFP...")
+        lfp = raw_rec.get_traces(return_in_uV=True)
+        lfp_decimated = decimate_like_mtracer_fast(lfp, r=decimation_factor)
+        fs_new = raw_rec.get_sampling_frequency() / decimation_factor
+        sorted_lfp, sorted_depths = sort_channels_by_depth(lfp_decimated, raw_rec)
+        np.save(cache_dir / "sorted_decimated_lfp.npy", sorted_lfp)
+        np.save(cache_dir / "sorted_decimated_depths.npy", sorted_depths)
+        np.save(cache_dir / "decimated_fs.npy", np.array(fs_new))
 
-    fs_new = raw_rec.get_sampling_frequency() / decimation_factor
-    sorted_lfp, sorted_depths = sort_channels_by_depth(lfp_decimated, raw_rec)
 
     if verbose:
         print("Creating plot...")
+
     fig = plot_lfp_heatmap_plotly(
         sorted_lfp, fs_new,
         title=title,

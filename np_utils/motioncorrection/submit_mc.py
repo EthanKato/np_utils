@@ -24,7 +24,7 @@ from ..core import find_all_neural_binaries
 # Recording IDs to process (or use get_rec_ids to pull from sheets)
 # Example: REC_IDS = get_rec_ids("NP_motion_correction_queue")
 REC_IDS = [
-    "NP134_B2"
+    "NP168_B1"
 ]
 
 # Motion correction presets to run

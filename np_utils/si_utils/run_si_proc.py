@@ -31,7 +31,7 @@ def main():
     parser = argparse.ArgumentParser(description="Run SpikeInterface processing on Neuropixels data")
     parser.add_argument("--rec-id", required=True, help="Recording ID (e.g., NP153_B1)")
     parser.add_argument("--file-path", required=False, help="Path to NWB file (optional)")
-    parser.add_argument("--sparse", action="store_true", default=True, help="Use sparse analyzer")
+    parser.add_argument("--sparse", action="store_true", default=False, help="Use sparse analyzer")
     parser.add_argument("--n-jobs", type=int, default=8, help="Number of parallel jobs")
     args = parser.parse_args()
     
@@ -145,10 +145,13 @@ def main():
     ts("All KS runs completed")
     
     # Update spreadsheet
-    subject = args.rec_id.split('_')[0]
-    block = args.rec_id.split('_')[1]
-    sheet_utils.write_to_recordings(subject, block, 'SI', 'y')
-
+    try: 
+        subject = args.rec_id.split('_')[0]
+        block = args.rec_id.split('_')[1]
+        sheet_utils.write_to_recordings(subject, block, 'SI', 'y')
+    except Exception as e:
+        ts(f"Error updating spreadsheet: {e}")
+        print(f"Error updating spreadsheet: {e}")
 
 if __name__ == "__main__":
     main()

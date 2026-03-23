@@ -15,7 +15,7 @@ def submit_job(
     memory_gb: int = 16,
     log_dir: Union[str, Path] = "/tmp/job_logs",
     job_prefix: str = "job",
-    use_time: bool = False,
+    use_time: bool = True,
     extra_args: Optional[List[str]] = None,
     executable: Optional[str] = None,
     gpus: Optional[int] = None,

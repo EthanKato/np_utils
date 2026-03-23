@@ -46,10 +46,15 @@ def build_sorting_analyzer(sorting, recording, out_path, sparse=True, n_jobs=8):
     )
     
     job_kwargs = dict(n_jobs=n_jobs, chunk_duration="1s", progress_bar=True)
+
+    if sparse:
+        max_spikes_per_unit = 10000
+    else:
+        max_spikes_per_unit = 500
     
     # Phase 1: waveforms + templates
     ext_params_1 = {
-        'random_spikes': {'method': 'uniform', 'max_spikes_per_unit': 10000},
+        'random_spikes': {'method': 'uniform', 'max_spikes_per_unit': max_spikes_per_unit},
         'waveforms': {'ms_before': 1.0, 'ms_after': 2.0},
         'templates': {'operators': ["average", "median", "std"]},
     }
