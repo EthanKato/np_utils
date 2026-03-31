@@ -11,6 +11,7 @@ import argparse
 from pathlib import Path
 import numpy as np
 import pynapple as nap
+import json 
 
 from NWBMaker import NPNWBMaker
 from neuroconv.datainterfaces import SpikeGLXRecordingInterface, KiloSortSortingInterface
@@ -44,19 +45,26 @@ def main():
         nwb_path = Path(f"/data_store2/neuropixels/nwb/{args.rec_id}/{args.rec_id}.nwb")
     
     # Initialize NWB maker
-    nwb = NPNWBMaker(file_path=nwb_path, rec_id=args.rec_id, make_log_file=False, silent=True)
+    nwb = NPNWBMaker(output_path=nwb_path, rec_id=args.rec_id, make_log_file=False, silent=True)
     nwb.initialize_nwbfile()
     nwb.resolve_paths(auto_resolve=True, ks_select_all=True)
     ts("NWB resolved")
     
     # Load pynapple data once
-    data = nap.load_file(nwb_path)
+    sorting_config_path = '/userdata/ekato/git_repos/np_preproc/neural/sorting_config.json'
+
+    with open(sorting_config_path, 'r') as f:
+        config = json.load(f) 
+    trange = config[args.rec_id]['trange']
+
+    #data = nap.load_file(nwb_path)
     
     # Caches to avoid redundant computation
     preproc_cache = {}  # imec -> (rec_ap_pre, rec_lfp_pre, rec_ap_stable, rec_lfp_stable)
     bad_cache = {}  # imec -> (bad_ids, labels, csv_path)
     
-    ks_paths = nwb.paths['kilosort']
+    ks_files = nwb.find_data('kilosort')
+    ks_paths = [Path(f).parent for f in ks_files]
     out_root = nwb_path.parent / "SI"
     out_root.mkdir(parents=True, exist_ok=True)
     
@@ -86,8 +94,8 @@ def main():
             rec_ap_pre, rec_lfp_pre = preprocess_recordings(rec_ap, rec_lfp)
             
             ts(f"[{imec}] slicing to stable interval")
-            t0 = data['KilosortSortTimes'].start[0]
-            t1 = data['KilosortSortTimes'].end[0]
+            t0 = trange[0]#data['kilosort_sort_times'].start[0]
+            t1 = trange[1]#data['kilosort_sort_times'].end[0]
             rec_ap_stable, rec_lfp_stable = slice_to_stable_interval(
                 rec_ap_pre, rec_lfp_pre, t0, t1
             )

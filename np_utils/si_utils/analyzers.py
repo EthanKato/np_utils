@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 from spikeinterface import create_sorting_analyzer
 from spikeinterface.curation import compute_merge_unit_groups
-from spikeinterface.qualitymetrics import compute_quality_metrics
+import spikeinterface.qualitymetrics as sqm
 
 
 def ts(msg):
@@ -50,7 +50,7 @@ def build_sorting_analyzer(sorting, recording, out_path, sparse=True, n_jobs=8):
     if sparse:
         max_spikes_per_unit = 10000
     else:
-        max_spikes_per_unit = 500
+        max_spikes_per_unit = 1000
     
     # Phase 1: waveforms + templates
     ext_params_1 = {
@@ -67,10 +67,11 @@ def build_sorting_analyzer(sorting, recording, out_path, sparse=True, n_jobs=8):
     ext_params_2 = {
         'spike_amplitudes': {'peak_sign': 'neg'},
         'unit_locations': {'method': 'monopolar_triangulation'},
+        'spike_locations': {'method': 'monopolar_triangulation'},
     }
     analyzer.compute(
         ['template_similarity', 'correlograms', 'spike_amplitudes', 'unit_locations',
-         'template_metrics', 'isi_histograms', 'noise_levels'],
+         'template_metrics', 'isi_histograms', 'noise_levels', 'spike_locations'],
         extension_params=ext_params_2, **job_kwargs)
     ts("metrics done")
     
@@ -79,7 +80,9 @@ def build_sorting_analyzer(sorting, recording, out_path, sparse=True, n_jobs=8):
     ts("acgs done")
     
     # Compute quality metrics table
-    _ = compute_quality_metrics(sorting_analyzer=analyzer)
+    qm_params = sqm.get_default_quality_metrics_params()
+    qm_params[]
+    _ = sqm.compute_quality_metrics(sorting_analyzer=analyzer)
     
     # Save to disk
     analyzer.save_as(format='binary_folder', folder=out_path)

@@ -17,8 +17,8 @@ QUEUE = "mind-batch"
 CORES = 8
 MEM_GB = 32
 PYTHON = sys.executable # "/userdata/ekato/miniforge3/envs/se2nwb/bin/python"
-FILE_PATH = "/data_store2/neuropixels/nwb/temp"
-LOG_DIR = "/data_store2/neuropixels/nwb/temp/logs"
+OUTPUT_PATH = "/scratch/ekato/nwb_test/"
+LOG_DIR = "/scratch/ekato/nwb_test/logs"
 USE_TIME = True
 INCLUDE_AP = False
 
@@ -75,7 +75,7 @@ def ask_keep(ids):
 def main():
     """Submit NWB creation jobs for approved recordings."""
     # Filter recordings interactively
-    kept = ask_keep(REC_IDS)
+    kept = REC_IDS
     
     if not kept:
         print("No recordings selected. Exiting.")
@@ -98,7 +98,7 @@ def main():
         job_prefix="nwb",
         use_time=USE_TIME,
         max_concurrent=len(kept) + 10,  # Submit all at once (or set lower for throttling) + 10 for already running jobs
-        extra_args_per_rec=lambda rec_id: ["--file-path", FILE_PATH] + extra_args,
+        extra_args_per_rec=lambda rec_id: ["--output-path", OUTPUT_PATH] + extra_args,
     )
     
     print("\nAll jobs submitted!")

@@ -191,19 +191,41 @@ class MotionCorrection:
         )
         self.raw_rec.shift_times(-self.raw_rec.get_start_time())
 
-        # Filter superpial channels 
+        # Filter channels 
+
+        channels_to_remove = set()
+
+        # --- collect bad channels ---
+        if self.bad_channels is not None:
+            print(f"[MC] Requested bad channels: {self.bad_channels}")
+            channels_to_remove.update(self.bad_channels)
+
+        # --- collect superpial channels ---
         if self.pial_surface is not None:
             print(f"[MC] Filtering superpial channels: {self.pial_surface} µm")
             chan_ids = self.raw_rec.get_channel_ids()
             locs = self.raw_rec.get_channel_locations()
             depths = locs[:, 1]
-            superpial_channels = [cid for cid, y in zip(chan_ids, depths) if y > self.pial_surface]
-            print(f"[MC] Removing {len(superpial_channels)} superpial channels: {superpial_channels}")
-            self.raw_rec = self.raw_rec.remove_channels(superpial_channels)
 
-        if self.bad_channels is not None:
-            print(f"[MC] Filtering bad channels: {self.bad_channels}")
-            self.raw_rec = self.raw_rec.remove_channels(self.bad_channels)
+            superpial_channels = [cid for cid, y in zip(chan_ids, depths) if y > self.pial_surface]
+            print(f"[MC] Found {len(superpial_channels)} superpial channels")
+            
+            channels_to_remove.update(superpial_channels)
+
+        # --- final safe removal ---
+        if channels_to_remove:
+            present = set(self.raw_rec.get_channel_ids())
+
+            # only remove what actually exists
+            to_remove = sorted(ch for ch in channels_to_remove if ch in present)
+
+            # optional: debug overlap / missing
+            missing = sorted(ch for ch in channels_to_remove if ch not in present)
+            if missing:
+                print(f"[MC] Skipping {len(missing)} already-removed/missing channels: {missing[:10]}...")
+
+            print(f"[MC] Removing {len(to_remove)} total channels")
+            self.raw_rec = self.raw_rec.remove_channels(to_remove)
         
         # Determine stable range
         if t0 is not None and t1 is not None:
